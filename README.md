@@ -145,109 +145,28 @@ flowchart TD
 
 ---
 
-## 服務介面契約規範 (Interfaces)
+## 核心介面契約規範 (Interfaces)
 
-| 模組 | 介面名稱 | 檔案路徑 | 實作類別 | 定義之方法與屬性 | 職責說明 |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Player** | `IPlayerState` | `Player/Interfaces/IPlayerState.cs` | 6 大狀態類別 (`Player...State`) | `Enter()`, `Update()`, `FixedUpdate()`, `Exit()` | 定義玩家單一角色狀態生命週期。 |
-| **Gameplay** | `IGameManager` | `Gameplay/Interfaces/IGameManager.cs` | `GameManager` | `CurrentScore`, `CurrentCombo`, `AddScore()`, `GameOver()` | 定義遊戲流程與連擊計分行為。 |
-| **Save** | `ISaveManager` | `Save/Interfaces/ISaveManager.cs` | `SaveManager` | `CurrentSaveData`, `SaveGame()`, `LoadGame()`, `UpdateHighScore()` | 定義存檔狀態管理與最高紀錄更新行為。 |
-| **Save** | `ISaveService` | `Save/Interfaces/ISaveService.cs` | `JsonSaveService` | `Save<T>()`, `Load<T>()`, `Exists()`, `Delete()` | 定義磁碟序列化存取行為。 |
-| **Audio** | `IAudioService` | `Audio/Interfaces/IAudioService.cs` | `AudioManager` | `PlaySFX()`, `PlayBGM()`, `SetVolume()` | 定義音效與背景音樂播放行為。 |
-| **Infrastructure** | `IPoolable` | `Infrastructure/Pooling/Interfaces/IPoolable.cs` | `Platform`, `Note` | `OnSpawn()`, `OnDespawn()` | 定義物件自物件池取出重用與歸還時之重置契約。 |
-
----
-
-## 場景節點拓撲與組件配置 (Scene Hierarchy & Component Setup)
-
-```text
-Scene Hierarchy (Gameplay Scene)
-├── [Core]
-│   ├── [GameManager]               <-- 掛載 Gameplay/GameManager.cs (實作 IGameManager)
-│   ├── [SaveManager]               <-- 掛載 Save/SaveManager.cs (實作 ISaveManager，DontDestroyOnLoad)
-│   ├── [AudioManager]              <-- 掛載 Audio/AudioManager.cs (實作 IAudioService)
-│   ├── [AudioSpectrum]             <-- 掛載 Audio/AudioSpectrumProvider.cs (帶有 AudioSource)
-│   └── [ObjectPool]                <-- 掛載 Infrastructure/Pooling/ObjectPool.cs (配置 Note 與 Platform 預置物與初始容量)
-├── Cameras
-│   ├── Main Camera                 <-- 綁定 CinemachineBrain 組件
-│   │   └── CameraBeatPulse.cs      (訂閱節拍脈衝微幅縮放正交視野)
-│   └── CM_vcam_Player              <-- 綁定 CinemachineVirtualCamera (Follow 指向 Player, Body 設為 2D Framing Transposer)
-├── Environment
-│   ├── LevelGenerator              <-- 掛載 Gameplay/LevelGenerator.cs
-│   ├── NoteGenerator               <-- 掛載 Gameplay/NoteGenerator.cs
-│   ├── DeadZone                    <-- 掛載 Gameplay/DeadZone.cs
-│   └── Backgrounds
-│       ├── Parallax_Far            <-- 掛載 Visuals/ParallaxBackground.cs (Multiplier = 0.2)
-│       └── Parallax_Near           <-- 掛載 Visuals/ParallaxBackground.cs (Multiplier = 0.6)
-├── Player                          <-- 掛載 Player/Player.cs
-│   ├── GroundCheck (空子物件)
-│   └── LedgeCheck (空子物件)
-└── Canvas                          <-- 掛載 UI/UIManager.cs
-    ├── GameHudPanel                <-- 掛載 UI/GameHudView.cs (綁定 ScoreText, ComboText)
-    ├── EndMenuPanel                <-- 掛載 UI/EndMenuView.cs (綁定 FinalScore, HighScore, RestartButton)
-    └── TouchControls
-        ├── JumpButton              <-- 掛載 UI/TouchJumpButton.cs (TargetPlayer -> Player)
-        └── SlideButton             <-- 掛載 UI/TouchSlideButton.cs (TargetPlayer -> Player)
-```
+| 介面契約 (Interface) | 實作類別 (Implementation) | 職責說明 |
+| :--- | :--- | :--- |
+| `IPlayerState` | 6 大狀態類別 (`Player...State`) | 定義單一角色狀態進入、每幀更新與退出生命週期 |
+| `IGameManager` | `GameManager` | 維護遊戲計分、連擊倍率計算與遊戲結束結算 |
+| `ISaveManager` | `SaveManager` | 存檔狀態快取仲裁、髒標記追蹤與最高紀錄更新 |
+| `ISaveService` | `JsonSaveService` | 抽象化磁碟序列化行為，負責 JSON 檔案存取 |
+| `IAudioService` | `AudioManager` | 集中調度背景音樂、音效播放與混音音量控制 |
+| `IPoolable` | `Platform`, `Note` | 定義跳台與節奏音符自物件池取出與歸還之重置契約 |
 
 ---
 
-## 專案檔案目錄結構
+## 模組架構與檔案拓撲 (Architecture Topology)
 
 ```text
-├── README.md
-├── Audio/                            # 音訊與頻譜管線
-│   ├── Interfaces/
-│   │   └── IAudioService.cs          # 音訊服務介面契約
-│   ├── AudioManager.cs               # 音訊播放與混音控制 (實作 IAudioService)
-│   └── AudioSpectrumProvider.cs      # 頻譜 FFT 數據採集器
-├── Gameplay/                         # 核心跑酷玩法
-│   ├── Interfaces/
-│   │   └── IGameManager.cs           # 遊戲流程契約
-│   ├── GameManager.cs                # 遊戲狀態與分數仲裁 (實作 IGameManager)
-│   ├── LevelGenerator.cs             # 無限隨機跑道生成器 (聯動物件池)
-│   ├── NoteGenerator.cs              # 節拍音符生成器 (聯動物件池)
-│   ├── Note.cs                       # 節拍音符物件 (實作 IPoolable)
-│   ├── Platform.cs                   # 跳台障礙物件 (實作 IPoolable)
-│   ├── MovingTrap.cs                 # 移動陷阱
-│   └── DeadZone.cs                   # 墜落死亡邊界
-├── Infrastructure/                   # 全域基礎設施
-│   ├── EventBus/
-│   │   ├── EventBus.cs               # 泛型事件匯流排
-│   │   └── Events/
-│   │       └── RhythmEvents.cs       # 節奏跑酷專屬領域事件
-│   └── Pooling/
-│       ├── Interfaces/
-│       │   └── IPoolable.cs          # 物件池回收契約
-│       └── ObjectPool.cs             # 泛型物件池
-├── Player/                           # 玩家角色與純 C# 有限狀態機 FSM
-│   ├── Interfaces/
-│   │   └── IPlayerState.cs           # 狀態契約介面
-│   ├── Player.cs                     # 玩家核心控制器 (組件快取與物理調度)
-│   └── States/
-│       ├── PlayerStateMachine.cs     # 狀態機調度器
-│       ├── PlayerRunState.cs         # 奔跑狀態
-│       ├── PlayerJumpState.cs        # 跳躍狀態
-│       ├── PlayerSlideState.cs       # 滑行狀態
-│       ├── PlayerLedgeState.cs       # 抓牆攀爬狀態
-│       ├── PlayerKnockbackState.cs   # 受擊擊退狀態
-│       └── PlayerDeadState.cs        # 死亡結算狀態
-├── Save/                             # 本地存檔管線
-│   ├── Interfaces/
-│   │   ├── ISaveManager.cs           # 存檔管理契約
-│   │   └── ISaveService.cs           # 儲存媒介策略契約
-│   ├── SaveManager.cs                # 存檔狀態管理器 (實作 ISaveManager, 髒標記)
-│   ├── JsonSaveService.cs            # 本機 JSON 儲存服務 (實作 ISaveService)
-│   └── RhythmSaveData.cs             # 跑酷紀錄資料模型
-├── UI/                               # 介面表現層
-│   ├── UIManager.cs                  # 全域面板流程切換
-│   ├── GameHudView.cs                # 遊戲中分數與節奏判定顯示
-│   ├── EndMenuView.cs                # 結算與重試面板 (顯示當局分數與歷史最高)
-│   ├── TouchJumpButton.cs            # 行動端跳躍觸控按鈕
-│   └── TouchSlideButton.cs           # 行動端滑行觸控按鈕
-└── Visuals/                          # 音樂頻譜視覺驅動與背景
-    ├── SpectrumScaleEffect.cs        # 頻譜音波動態縮放
-    ├── SpectrumColorEffect.cs        # 頻譜灰階色彩律動
-    ├── CameraBeatPulse.cs            # 攝影機節奏律動 (Cinemachine 聯動)
-    └── ParallaxBackground.cs         # 視差滾動背景
+rhythm-sync/
+├── Player/             # 純 C# 玩家有限狀態機 FSM (6 大狀態類別, PlayerStateMachine)
+├── Gameplay/           # 核心跑酷玩法、無限跑道與音符生成器 (LevelGenerator, NoteGenerator)
+├── Visuals/            # 音樂頻譜視覺聯動 (Cinemachine 鏡頭震波 CameraBeatPulse, 視差背景)
+├── Audio/              # 即時頻譜採樣與音訊服務 (AudioSpectrumProvider, AudioManager)
+├── Infrastructure/     # 泛型 EventBus 事件匯流排與零 GC 物件池 (ObjectPool)
+├── Save/               # 策略模式本地 JSON 存檔 (SaveManager, JsonSaveService)
+└── UI/                 # 遊戲 HUD、節拍連擊判定與結算面板 (UIManager, GameHudView)
 ```
